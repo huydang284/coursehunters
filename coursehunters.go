@@ -1,15 +1,25 @@
 package main
 
 import (
+    "fmt"
     "golang.org/x/net/html"
+    "log"
     "net/http"
+    "os"
+    "path/filepath"
     "strings"
 )
 
-func GetVideos(courseUrl string) map[string]bool {
+var courses map[string]bool
+
+func init() {
+    courses = make(map[string]bool)
+}
+
+func GetVideos(courseUrl string) {
+    fmt.Println("Getting videos info")
     // todo validate url
 
-    courses := make(map[string]bool)
     // parse from html
     resp, err := http.Get(courseUrl)
     if err != nil {
@@ -44,13 +54,41 @@ loop:
         }
     }
 
-    return courses
+    //go saveToFile()
 }
 
-func DownloadVideos(courseUrl string) {
-    courses := GetVideos(courseUrl)
-    for url := range courses {
-        DownloadFile(url, "./../temp/")
-        break
+/*
+func saveToFile() {
+    json, err := json2.Marshal(courses)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    errW := ioutil.WriteFile("./temp/courses.json", json, 666)
+    if errW != nil {
+        log.Fatal(errW)
+    }
+}
+*/
+func GetNextVideo() string {
+    for url, notDone := range courses {
+        if !notDone {
+            continue
+        }
+        return url
+    }
+
+    return ""
+}
+
+func emptyTempFolder() {
+    files, err := filepath.Glob("./temp/*.mp4")
+    if err != nil {
+        log.Fatal(err)
+    }
+    for _, f := range files {
+        if err := os.Remove(f); err != nil {
+            log.Fatal(err)
+        }
     }
 }

@@ -1,10 +1,5 @@
 package main
 
-/**
- * @website http://albulescu.ro
- * @author Cosmin Albulescu <cosmin@albulescu.ro>
- */
-
 import (
     "bytes"
     "fmt"
@@ -44,8 +39,7 @@ func PrintDownloadPercent(done chan int64, path string, total int64) {
 
             var percent = float64(size) / float64(total) * 100
 
-            fmt.Printf("%.0f", percent)
-            fmt.Println("%")
+            fmt.Printf("\r%s", generateProgressBar(percent))
         }
 
         if stop {
@@ -56,7 +50,23 @@ func PrintDownloadPercent(done chan int64, path string, total int64) {
     }
 }
 
-func DownloadFile(url string, dest string) {
+func generateProgressBar(percent float64) (progress string) {
+    done := int(percent / 2)
+
+    progress = "["
+    for i := 0; i < done-1; i++ {
+        progress += "="
+    }
+    progress += ">"
+    for i := 0; i < 50-done; i++ {
+        progress += " "
+    }
+    progress += "] " + fmt.Sprintf("%.0f%%", percent)
+
+    return progress
+}
+
+func DownloadFile(url string, dest string) string {
     file := path.Base(url)
 
     log.Printf("Downloading file %s from %s\n", file, url)
@@ -112,5 +122,7 @@ func DownloadFile(url string, dest string) {
     done <- n
 
     elapsed := time.Since(start)
-    log.Printf("Download completed in %s", elapsed)
+    log.Printf("\nDownload completed in %s", elapsed)
+
+    return file
 }

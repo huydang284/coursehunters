@@ -1,1 +1,1 @@
-# coursehunters
+# Coursehunters tool
