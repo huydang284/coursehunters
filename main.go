@@ -17,7 +17,7 @@ func main() {
         log.Fatalf("Unable to read client secret file: %v", err)
     }
 
-    config, err := google.ConfigFromJSON(b, youtube.YoutubeUploadScope)
+    config, err := google.ConfigFromJSON(b, youtube.YoutubeScope)
     if err != nil {
         log.Fatalf("Unable to parse client secret file to config: %v", err)
     }
@@ -34,14 +34,22 @@ func main() {
     }
 
     GetVideos(courseUrl)
+    playlistId := createPlaylist(service, title)
+
     for {
-        url := GetNextVideo()
-        if url == "" {
+        lessonIndex := getNextLessonIndex()
+
+        if lessonIndex == -1 {
             break
         }
-        downloadedFile := DownloadFile(url, "./temp/")
-        uploadVideo(service, "./temp/"+downloadedFile)
-        courses[url] = false // false as DONE
+        lesson := courses[lessonIndex]
+        // download video from coursehunters
+        downloadedFile := DownloadFile(lesson.url, "./temp/")
+        // upload video to youtube
+        videoId := uploadVideo(service, "./temp/"+downloadedFile, lesson.title)
+        // add to playlist
+        addVideoToPlaylist(service, playlistId, videoId)
+        courses[lessonIndex].downloaded = true
     }
     // empty temp folders
     emptyTempFolder()

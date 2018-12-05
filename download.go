@@ -19,6 +19,8 @@ func PrintDownloadPercent(done chan int64, path string, total int64) {
         select {
         case <-done:
             stop = true
+            fmt.Printf("\r%s", generateProgressBar(100))
+            fmt.Println("")
         default:
 
             file, err := os.Open(path)
@@ -58,7 +60,7 @@ func generateProgressBar(percent float64) (progress string) {
         progress += "="
     }
     progress += ">"
-    for i := 0; i < 50-done; i++ {
+    for i := 0; i < 50-done-1; i++ {
         progress += " "
     }
     progress += "] " + fmt.Sprintf("%.0f%%", percent)
@@ -69,7 +71,7 @@ func generateProgressBar(percent float64) (progress string) {
 func DownloadFile(url string, dest string) string {
     file := path.Base(url)
 
-    log.Printf("Downloading file %s from %s\n", file, url)
+    fmt.Printf("\nDownloading file %s from %s\n", file, url)
 
     var localPath bytes.Buffer
     localPath.WriteString(dest)
@@ -122,7 +124,8 @@ func DownloadFile(url string, dest string) string {
     done <- n
 
     elapsed := time.Since(start)
-    log.Printf("\nDownload completed in %s", elapsed)
+    fmt.Printf("Download completed in %s", elapsed)
+    fmt.Println("\nUploading to Youtube...")
 
     return file
 }

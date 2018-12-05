@@ -11,6 +11,8 @@ import (
     "os"
     "os/user"
     "path/filepath"
+    "strconv"
+    "strings"
 
     "golang.org/x/net/context"
     "golang.org/x/oauth2"
@@ -101,12 +103,19 @@ func handleError(err error, message string) {
     }
 }
 
-func uploadVideo(service *youtube.Service, filePath string) {
+func createPlaylist(service *youtube.Service, playlistName string) string {
+    properties := map[string]string{"snippet.title": playlistName}
+    res := createResource(properties)
+
+    // Note: service variable must already be defined.
+    return playlistsInsert(service, "snippet", res)
+}
+
+func uploadVideo(service *youtube.Service, filePath string, lessonTitle string) string{
     upload := &youtube.Video{
         Snippet: &youtube.VideoSnippet{
-            Title:       "this is title",
-            Description: "this is description",
-            CategoryId:  "27",
+            Title:      lessonTitle,
+            CategoryId: "27",
         },
         Status: &youtube.VideoStatus{PrivacyStatus: "private"},
     }
@@ -121,5 +130,82 @@ func uploadVideo(service *youtube.Service, filePath string) {
     if err != nil {
         log.Fatalf("Error making YouTube API call: %v", err)
     }
-    fmt.Printf("Upload successful! Video ID: %v\n", response.Id)
+    fmt.Printf("\nUpload successful! Video ID: %v\n", response.Id)
+
+    return response.Id
+}
+
+func createResource(properties map[string]string) string {
+    resource := make(map[string]interface{})
+    for key, value := range properties {
+        keys := strings.Split(key, ".")
+        ref := addPropertyToResource(resource, keys, value, 0)
+        resource = ref
+    }
+    propJson, err := json.Marshal(resource)
+    if err != nil {
+        log.Fatal("cannot encode to JSON ", err)
+    }
+    return string(propJson)
+}
+
+func addPropertyToResource(ref map[string]interface{}, keys []string, value string, count int) map[string]interface{} {
+    for k := count; k < (len(keys) - 1); k++ {
+        switch val := ref[keys[k]].(type) {
+        case map[string]interface{}:
+            ref[keys[k]] = addPropertyToResource(val, keys, value, k+1)
+        case nil:
+            next := make(map[string]interface{})
+            ref[keys[k]] = addPropertyToResource(next, keys, value, k+1)
+        }
+    }
+    // Only include properties that have values.
+    if count == len(keys)-1 && value != "" {
+        valueKey := keys[len(keys)-1]
+        if valueKey[len(valueKey)-2:] == "[]" {
+            ref[valueKey[0:len(valueKey)-2]] = strings.Split(value, ",")
+        } else if len(valueKey) > 4 && valueKey[len(valueKey)-4:] == "|int" {
+            ref[valueKey[0:len(valueKey)-4]], _ = strconv.Atoi(value)
+        } else if value == "true" {
+            ref[valueKey] = true
+        } else if value == "false" {
+            ref[valueKey] = false
+        } else {
+            ref[valueKey] = value
+        }
+    }
+    return ref
+}
+
+func playlistsInsert(service *youtube.Service, part string, res string) string {
+    resource := &youtube.Playlist{}
+    if err := json.NewDecoder(strings.NewReader(res)).Decode(&resource); err != nil {
+        log.Fatal(err)
+    }
+    call := service.Playlists.Insert(part, resource)
+    resp, err := call.Do()
+    handleError(err, "")
+
+    return resp.Id
+}
+
+func addVideoToPlaylist(service *youtube.Service, playlistId string, videoId string) {
+    properties := map[string]string{"snippet.playlistId": playlistId,
+        "snippet.resourceId.kind":    "youtube#video",
+        "snippet.resourceId.videoId": videoId,
+    }
+    res := createResource(properties)
+
+    // Note: service variable must already be defined.
+    playlistItemsInsert(service, "snippet", res)
+}
+
+func playlistItemsInsert(service *youtube.Service, part string, res string) {
+    resource := &youtube.PlaylistItem{}
+    if err := json.NewDecoder(strings.NewReader(res)).Decode(&resource); err != nil {
+        log.Fatal(err)
+    }
+    call := service.PlaylistItems.Insert(part, resource)
+    _, err := call.Do()
+    handleError(err, "")
 }

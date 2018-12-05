@@ -2,22 +2,24 @@ package main
 
 import (
     "fmt"
-    "golang.org/x/net/html"
+    "github.com/PuerkitoBio/goquery"
     "log"
     "net/http"
     "os"
     "path/filepath"
-    "strings"
 )
 
-var courses map[string]bool
+var courses []Lesson
+var title string
 
-func init() {
-    courses = make(map[string]bool)
+type Lesson struct {
+    title      string
+    url        string
+    downloaded bool
 }
 
 func GetVideos(courseUrl string) {
-    fmt.Println("Getting videos info")
+    fmt.Println("Getting videos info...")
     // todo validate url
 
     // parse from html
@@ -26,59 +28,36 @@ func GetVideos(courseUrl string) {
         panic(err)
     }
 
+    html, err := goquery.NewDocumentFromReader(resp.Body)
     defer resp.Body.Close()
-    htmlTokens := html.NewTokenizer(resp.Body)
-loop:
-    for {
-        tt := htmlTokens.Next()
-        switch tt {
-        case html.ErrorToken:
-            break loop
-        case html.SelfClosingTagToken:
-            t := htmlTokens.Token()
-            if t.Data == "link" {
-                for _, attr := range t.Attr {
-                    if attr.Key != "href" {
-                        continue
-                    }
-                    // validate mp4 path
-                    if !strings.HasSuffix(attr.Val, ".mp4") {
-                        continue loop
-                    }
-                    found := courses[attr.Val]
-                    if !found {
-                        courses[attr.Val] = true
-                    }
-                }
-            }
-        }
-    }
 
-    //go saveToFile()
-}
-
-/*
-func saveToFile() {
-    json, err := json2.Marshal(courses)
     if err != nil {
-        log.Fatal(err)
+        panic(err)
     }
 
-    errW := ioutil.WriteFile("./temp/courses.json", json, 666)
-    if errW != nil {
-        log.Fatal(errW)
-    }
+    //defer resp.Body.Close()
+
+    title = html.Find("article h2").Text()
+    html.Find("li.lessons-list__li").Each(func(i int, selection *goquery.Selection) {
+        lessonTitle := selection.Find("[itemprop=\"name\"]").Text()
+        url, _ := selection.Find("[itemprop=\"url\"]").Attr("href")
+
+        courses = append(courses, Lesson{
+            lessonTitle,
+            url,
+            false,
+        })
+    })
 }
-*/
-func GetNextVideo() string {
-    for url, notDone := range courses {
-        if !notDone {
+
+func getNextLessonIndex() int {
+    for index := range courses {
+        if courses[index].downloaded {
             continue
         }
-        return url
+        return index
     }
-
-    return ""
+    return -1
 }
 
 func emptyTempFolder() {
