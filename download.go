@@ -19,7 +19,6 @@ func PrintDownloadPercent(done chan int64, path string, total int64) {
         select {
         case <-done:
             stop = true
-            fmt.Printf("\r%s", generateProgressBar(100))
             fmt.Println("")
         default:
 
