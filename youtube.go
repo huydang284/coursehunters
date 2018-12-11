@@ -5,6 +5,8 @@ package main
 import (
     "encoding/json"
     "fmt"
+    "golang.org/x/oauth2/google"
+    "io/ioutil"
     "log"
     "net/http"
     "net/url"
@@ -39,7 +41,8 @@ func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
 func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
     authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
     fmt.Printf("Go to the following link in your browser then type the "+
-        "authorization code: \n%v\n", authURL)
+        "authorization code: \n%v\n\n", authURL)
+    fmt.Print(">> Enter your code: ")
 
     var code string
     if _, err := fmt.Scan(&code); err != nil {
@@ -104,14 +107,15 @@ func handleError(err error, message string) {
 }
 
 func createPlaylist(service *youtube.Service, playlistName string) string {
+    log.Println("Creating playlist with title: " + playlistName)
     properties := map[string]string{"snippet.title": playlistName}
     res := createResource(properties)
 
-    // Note: service variable must already be defined.
     return playlistsInsert(service, "snippet", res)
 }
 
-func uploadVideo(service *youtube.Service, filePath string, lessonTitle string) string{
+func uploadVideo(service *youtube.Service, filePath string, lessonTitle string) string {
+    log.Println("Uploading " + filePath)
     upload := &youtube.Video{
         Snippet: &youtube.VideoSnippet{
             Title:      lessonTitle,
@@ -130,7 +134,7 @@ func uploadVideo(service *youtube.Service, filePath string, lessonTitle string) 
     if err != nil {
         log.Fatalf("Error making YouTube API call: %v", err)
     }
-    fmt.Printf("\nUpload successful! Video ID: %v\n", response.Id)
+    log.Printf("Upload successful! Video ID: %v\n", response.Id)
 
     return response.Id
 }
@@ -195,8 +199,6 @@ func addVideoToPlaylist(service *youtube.Service, playlistId string, videoId str
         "snippet.resourceId.videoId": videoId,
     }
     res := createResource(properties)
-
-    // Note: service variable must already be defined.
     playlistItemsInsert(service, "snippet", res)
 }
 
@@ -208,4 +210,41 @@ func playlistItemsInsert(service *youtube.Service, part string, res string) {
     call := service.PlaylistItems.Insert(part, resource)
     _, err := call.Do()
     handleError(err, "")
+}
+
+func initService() *youtube.Service {
+    ctx := context.Background()
+
+    b, err := ioutil.ReadFile("client_secret.json")
+    if err != nil {
+        log.Fatalf("Unable to read client secret file: %v", err)
+    }
+
+    config, err := google.ConfigFromJSON(b, youtube.YoutubeScope)
+    if err != nil {
+        log.Fatalf("Unable to parse client secret file to config: %v", err)
+    }
+
+    client := getClient(ctx, config)
+    service, err := youtube.New(client)
+
+    handleError(err, "Error creating YouTube client")
+
+    return service
+}
+
+func getPlaylist(service *youtube.Service, playlistName string) string {
+    // get all playlists
+    call := service.Playlists.List("snippet").Mine(true)
+    response, err := call.Do()
+    handleError(err, "")
+    for _, item := range response.Items {
+        if item.Snippet.Title == playlistName {
+            log.Println("Created playlist found: " + item.Id)
+            return item.Id
+        }
+    }
+
+    log.Println("Cannot find the playlist")
+    return createPlaylist(service, playlistName)
 }

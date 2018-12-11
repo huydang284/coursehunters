@@ -19,7 +19,6 @@ func PrintDownloadPercent(done chan int64, path string, total int64) {
         select {
         case <-done:
             stop = true
-            fmt.Println("")
         default:
 
             file, err := os.Open(path)
@@ -67,10 +66,10 @@ func generateProgressBar(percent float64) (progress string) {
     return progress
 }
 
-func DownloadFile(url string, dest string) string {
+func downloadFile(url string, dest string) string {
     file := path.Base(url)
 
-    fmt.Printf("\nDownloading file %s from %s\n", file, url)
+    log.Printf("Downloading file %s from %s\n", file, url)
 
     var localPath bytes.Buffer
     localPath.WriteString(dest)
@@ -80,51 +79,33 @@ func DownloadFile(url string, dest string) string {
     start := time.Now()
 
     out, err := os.Create(localPath.String())
-
-    if err != nil {
-        fmt.Println(localPath.String())
-        panic(err)
-    }
-
+    check(err)
     defer out.Close()
 
     headResp, err := http.Head(url)
-
-    if err != nil {
-        panic(err)
-    }
+    check(err)
 
     defer headResp.Body.Close()
 
     size, err := strconv.Atoi(headResp.Header.Get("Content-Length"))
-
-    if err != nil {
-        panic(err)
-    }
+    check(err)
 
     done := make(chan int64)
 
     go PrintDownloadPercent(done, localPath.String(), int64(size))
 
     resp, err := http.Get(url)
-
-    if err != nil {
-        panic(err)
-    }
-
+    check(err)
     defer resp.Body.Close()
 
     n, err := io.Copy(out, resp.Body)
-
-    if err != nil {
-        panic(err)
-    }
+    check(err)
 
     done <- n
 
     elapsed := time.Since(start)
-    fmt.Printf("Download completed in %s", elapsed)
-    fmt.Println("\nUploading to Youtube...")
+    log.Println(fmt.Sprintf("Download completed in %s", elapsed))
+    log.Println("Uploading to Youtube...")
 
     return file
 }
