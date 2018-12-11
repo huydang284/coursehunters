@@ -69,6 +69,7 @@ func generateProgressBar(percent float64) (progress string) {
 func downloadFile(url string, dest string) string {
     file := path.Base(url)
 
+    fmt.Println()
     log.Printf("Downloading file %s from %s\n", file, url)
 
     var localPath bytes.Buffer
@@ -101,11 +102,12 @@ func downloadFile(url string, dest string) string {
     n, err := io.Copy(out, resp.Body)
     check(err)
 
+    fmt.Printf("\r%s", generateProgressBar(100))
     done <- n
 
     elapsed := time.Since(start)
+    fmt.Println()
     log.Println(fmt.Sprintf("Download completed in %s", elapsed))
-    log.Println("Uploading to Youtube...")
 
     return file
 }

@@ -51,10 +51,13 @@ func defaultProcess(playlist string) {
         playlist = title
     }
     playlistId := getPlaylist(service, playlist)
-    log.Println("Creating temp directory")
+
     tempDir := "./temp"
-    err := os.Mkdir(tempDir, 0777)
-    check(err)
+    if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+        log.Println("Creating temp directory")
+        err := os.Mkdir(tempDir, 0777)
+        check(err)
+    }
 
     jsonFile := tempDir + "/downloaded.json"
     data, err := ioutil.ReadFile(jsonFile)

@@ -134,7 +134,7 @@ func uploadVideo(service *youtube.Service, filePath string, lessonTitle string) 
     if err != nil {
         log.Fatalf("Error making YouTube API call: %v", err)
     }
-    log.Printf("Upload successful! Video ID: %v\n", response.Id)
+    log.Printf("Uploaded successful! Video ID: %v\n", response.Id)
 
     return response.Id
 }
