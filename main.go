@@ -7,9 +7,11 @@ import (
     "io/ioutil"
     "log"
     "os"
+    "os/signal"
     "os/user"
     "path/filepath"
     "strings"
+    "syscall"
 )
 
 func main() {
@@ -67,6 +69,15 @@ func defaultProcess(playlist string) {
         check(err)
     }
 
+    // clean temp files if interupt
+    c := make(chan os.Signal)
+    signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+    go func() {
+        <-c
+        emptyTempFolder()
+        os.Exit(1)
+    }()
+
     for _, lesson := range lessons {
         if inSlice(lesson.url, downloaded) {
             continue
@@ -86,6 +97,7 @@ func defaultProcess(playlist string) {
 
     check(os.Remove(tempDir))
     log.Println("Done")
+    os.Exit(0)
 }
 
 func uploadDirectoryToYoutube(directory string, playlistName string) {
@@ -154,4 +166,16 @@ func printHelp() {
         "\t ./coursehunters [-playlist=\"Your playlist name\"]\n\n" +
         "> Upload videos from directory:\n" +
         "\t ./coursehunters -upload -dir=~/sample [-playlist=\"Your playlist name\"]")
+}
+
+func emptyTempFolder() {
+    files, err := filepath.Glob("./temp/*.mp4")
+    if err != nil {
+        log.Fatal(err)
+    }
+    for _, f := range files {
+        if err := os.Remove(f); err != nil {
+            log.Fatal(err)
+        }
+    }
 }
